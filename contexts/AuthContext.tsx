@@ -1,5 +1,5 @@
-import { createContext, ReactNode, useState } from "react";
-import { setCookie } from 'nookies'
+import { createContext, ReactNode, useEffect, useState } from "react";
+import { setCookie, parseCookies } from 'nookies'
 import { api } from "../services/api";
 import Router from "next/router";
 
@@ -30,6 +30,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<User>()
     const isAuthenticated = !!user;
 
+    useEffect(() => {
+        const { 'nextauth.token': token } = parseCookies()
+
+        if (token) {
+            api.get('/me').then(response => {
+                const { email, permissions, roles } = response.data
+
+                setUser({ email, permissions, roles })
+            })
+        }
+
+    }, [])
+
     async function signIn({ email, password }: SignInCredentials) {
         try {
             const repsonse = await api.post('sessions', {
@@ -39,13 +52,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             const { token, refreshToken, permissions, roles } = repsonse.data
 
-            setCookie(undefined, 'next-auth.token',token, {
-                maxAge:60 * 60 * 24 * 30,
-                path:'/' // 30 days
+            setCookie(undefined, 'nextauth.token', token, {
+                maxAge: 60 * 60 * 24 * 30,
+                path: '/' // 30 days
             })
-            setCookie(undefined, 'next-auth.refreshToken',refreshToken,{
-                maxAge:60 * 60 * 24 * 30,
-                path:'/' // 3
+            setCookie(undefined, 'nextauth.refreshToken', refreshToken, {
+                maxAge: 60 * 60 * 24 * 30,
+                path: '/' // 3
             })
 
             setUser({
@@ -53,6 +66,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 permissions,
                 roles
             })
+
+            api.defaults.headers['Authorization'] = `Bearer ${token}`;
 
             Router.push('/dashboard');
         } catch (err) {
