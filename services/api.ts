@@ -1,9 +1,10 @@
 import axios, { Axios, AxiosError } from 'axios';
 import { parseCookies, setCookie } from 'nookies';
+import { singOut } from '../contexts/AuthContext';
 
 let cookies = parseCookies();
 let isRefreshing = false
-let failedRequestQueue = []
+let failedRequestQueue: { onSuccess: (token: string) => void; OnFailure: (err: AxiosError<any, any>) => void; }[] = []
 
 export const api = axios.create({
     baseURL: 'http://localhost:3333',
@@ -15,8 +16,6 @@ export const api = axios.create({
 api.interceptors.response.use(reponse => {
     return reponse
 }, (error: AxiosError) => {
-    console.log(error);
-
     if (error.response?.status === 401) {
         if (error.response.data?.code === 'token.expired') {
             cookies = parseCookies();
@@ -48,12 +47,12 @@ api.interceptors.response.use(reponse => {
                     failedRequestQueue = [];
 
                 }).catch(err => {
-                    failedRequestQueue.forEach(request => request.onSuccess(err))
+                    failedRequestQueue.forEach(request => request.OnFailure(err))
                     failedRequestQueue = [];
                 }).finally(() => {
                     isRefreshing = false
                 });
-            } 
+            }
 
             return new Promise((resolve, reject) => {
                 failedRequestQueue.push({
@@ -62,13 +61,16 @@ api.interceptors.response.use(reponse => {
 
                         resolve(api(originalConfig))
                     },
-                    OnFailure:(err: AxiosError) =>{
+                    OnFailure: (err: AxiosError) => {
                         reject(err)
                     }
                 })
             })
-        } else {
 
+        } else {
+            singOut();
         }
     }
-})
+
+    return Promise.reject(error);
+});
