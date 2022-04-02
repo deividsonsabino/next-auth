@@ -23,7 +23,6 @@ export function withSSRAuth<P>(fn: GetServerSideProps<P>, options?: WithSSRAuthO
             }
         }
 
-        console.log('aaa',options);
         if (options) {
             const user = decode<{ permissions: string[], roles: string[] }>(token);
             const { permissions, roles } = options
